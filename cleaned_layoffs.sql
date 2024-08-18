@@ -158,3 +158,88 @@ DROP COLUMN row_num;
 -- the cleaned data
 SELECT *
 FROM layoffs_staging2;
+
+
+
+-- EDA
+SELECT MAX(total_laid_off), MAX(percentage_laid_off)
+FROM layoffs_staging2;
+
+SELECT *
+FROM layoffs_staging2
+WHERE percentage_laid_off=1
+ORDER BY total_laid_off DESC;
+
+-- find the total number of layoff in each company
+SELECT company, SUM(total_laid_off) AS total
+FROM layoffs_staging2
+GROUP BY company
+ORDER BY 2 	DESC;
+
+-- the date range of the record
+SELECT MAX(`date`), MIN(`date`)
+FROM layoffs_staging2;
+
+-- find the total number of layoff in each industry
+SELECT industry, SUM(total_laid_off) AS total
+FROM layoffs_staging2
+GROUP BY industry
+ORDER BY 2 	DESC;
+
+SELECT country, SUM(total_laid_off) AS total
+FROM layoffs_staging2
+GROUP BY country
+ORDER BY 2 	DESC;
+
+-- to find the number of layoff in each year
+SELECT YEAR(`date`), SUM(total_laid_off) AS total
+FROM layoffs_staging2
+GROUP BY YEAR(`date`)
+ORDER BY 1 	DESC;
+
+SELECT substring(`date`, 1, 7) AS `month`, SUM(total_laid_off) AS total
+FROM layoffs_staging2
+GROUP BY `month` 
+ORDER BY `month`;
+
+SELECT substring(`date`, 1, 7) AS `month`, SUM(total_laid_off) AS total
+FROM layoffs_staging2
+WHERE substring(`date`, 1, 7) IS NOT NULL
+-- in where, we cant use the var of substr
+GROUP BY `month` 
+ORDER BY `month`;
+
+-- CTE
+WITH Rolling_total AS
+(
+SELECT substring(`date`, 1, 7) AS `month`, SUM(total_laid_off) AS total
+FROM layoffs_staging2
+WHERE substring(`date`, 1, 7) IS NOT NULL
+-- in where, we cant use the var of substr
+GROUP BY `month` 
+ORDER BY `month`
+)
+SELECT `month`,total, SUM(total) OVER (ORDER BY `month`) AS rolling_total
+FROM Rolling_total;
+#
+-- each company layoff on each year
+SELECT company, YEAR(`date`), SUM(total_laid_off)
+FROM layoffs_staging2
+GROUP BY company, YEAR(`date`)
+ORDER BY 3 DESC;
+
+WITH Company_year (company, years, total_laid_off) AS
+(
+SELECT company, YEAR(`date`), SUM(total_laid_off)
+FROM layoffs_staging2
+GROUP BY company, YEAR(`date`)
+), Company_Year_Rank AS
+(
+SELECT *, DENSE_RANK() OVER (PARTITION BY years ORDER BY total_laid_off DESC) AS ranking
+FROM Company_year
+WHERE years IS NOT NULL
+)
+-- got the first five rank of each year
+SELECT *
+FROM Company_Year_Rank
+WHERE Ranking<=5
